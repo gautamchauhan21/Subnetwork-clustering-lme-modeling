@@ -1,0 +1,6 @@
+"0","count <- df_lite %>%"
+"0","  group_by(sex, f.age) %>%"
+"0","  dplyr::summarize(animal_count = n_distinct(subject_id),"
+"0","            image_count = n())"
+"0",""
+"0","kable(count)"

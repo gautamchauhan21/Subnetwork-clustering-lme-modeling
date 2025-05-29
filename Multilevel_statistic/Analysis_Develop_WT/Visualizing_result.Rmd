@@ -7,81 +7,99 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+# Set knitr options to suppress code echoing, messages, warnings, and comments
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, comment = "")
 
+# Initialize freshr package for clean R environment
 freshr::freshr()
 
 # Verify the working directory
 getwd() # Should print the path to your working directory
 
-library(gridExtra)
-library(knitr)
-library(tidyverse)
-library(tinytex)
-library(extrafont)
-library(ggpubr)
-library(sjPlot)
+# Load required R packages for data manipulation, visualization, and reporting
+library(gridExtra) # For arranging multiple plots
+library(knitr) # For generating dynamic reports
+library(tidyverse) # For data manipulation and visualization
+library(tinytex) # For LaTeX rendering in RMarkdown
+library(extrafont) # For custom fonts in plots
+library(ggpubr) # For publication-ready plots
+library(sjPlot) # For statistical model visualization
 
-#set-theme for figure
-theme_set (theme_classic(base_size = 10, base_family = "sans"))
+# Set theme for figures
+theme_set (theme_classic(base_size = 10, base_family = "sans")) # Use clean, sans-serif theme with base font size 10
 
-##libraries for color
-library(ggsci)
+# Load color palette package
+library(ggsci) # For scientific journal color schemes
 
+# Load here package for consistent file path handling
 library(here)
-# Load source
+
+# Load custom function for post-hoc analysis
 source(here("src", "Develop_Function_posthoc.R"))
 
-# Load RData
+# Load precomputed RData file with K-means clustering results
 load(here("output","Kmean_CovM_SummaryDev.RData"))
 ```
 
 ### Report animal number and image number
 ```{r,results='asis',echo=FALSE}
+# Summarize animal and image counts by sex and age
+
 count <- df_lite %>%
   group_by(sex, f.age) %>%
   dplyr::summarize(animal_count = n_distinct(subject_id),
             image_count = n())
 
+# Display summary table
 kable(count)
 ```
 
 ### Summary of selected model results
 ```{r}
+# Generate and display summary tables for selected statistical models
 tab_model(mod_list_select)
 ```
 
 
-### Plot individuel figure: example 1
+### Plot individual figure: example 1
 ```{r,fig.width = 6, fig.asp =0.5, echo=FALSE}
+# Plot total cell number with faceted layers
+
 plot_raw_boot_facet_layer("total_cell_number",
                            y_breaks = seq(0, 400, 100),
                            y_limits = c(0, 400),
                            legend_position =c(0.9, 0.9))
-# Save the figure
+
+# Save the plot as an SVG file
 ggsave("total_cell_number.svg", plot = last_plot(), path = here("output_plot"),
          width = 3.5, height = 2, units = "in")
 
 ```
 
-### Plot individuel figure: example 2
+### Plot individual figure: example 2
 ```{r,fig.width = 6, fig.asp =0.5, echo=FALSE}
+# Plot total cell number with faceting by sex
+
 plot_raw_boot_facet_sex("total_cell_number",
                            y_breaks = seq(0, 400, 100),
                            y_limits = c(0, 400),
                            legend_position = c(0.9, 0.9))
 
-# Save the figure
+# Save the plot as an SVG file
 ggsave("total_cell_number_facet_sex.svg", plot = last_plot(), path = here("output_plot"),
          width = 3.5, height = 2, units = "in")
 ```
 
-### Plot individuel figure: example 3
+### Plot individual figure: example 3
 ```{r,fig.width = 6, fig.asp =0.5, echo=FALSE}
+# Plot total cell number with merged sex facets
+
 plot_raw_boot_merge_sex("total_cell_number",
                            y_breaks = seq(0, 400, 100),
                            y_limits = c(0, 400),
                            legend_position = c(0.9, 0.9))
+
+# Save the plot as an SVG file
 ggsave("total_cell_number_facet_merge_sex.svg", plot = last_plot(), path = here("output_plot"),
          width = 3.5, height = 2, units = "in")
 
@@ -89,11 +107,10 @@ ggsave("total_cell_number_facet_merge_sex.svg", plot = last_plot(), path = here(
 
 ### Plot multiple figures simultaneously: example 1
 ```{r,fig.width = 8, fig.asp =0.8, echo=FALSE}
-
-#variables_to_plot <- rv_list
+# Define variables to plot
 variables_to_plot <- c('total_cell_number','n_cls_before_stat','silhs_mean_before_stat','n_cls')
 
-# create the y-axis parameter
+# Define y-axis parameters for each variable
 y_axis_params <- list(
   total_cell_number = list(y_breaks = seq(0, 400, by = 100), y_limits = c(0, 400)),
   n_cls_before_stat = list(y_breaks = seq(0, 100, by = 5), y_limits = c(0, 25)),
@@ -101,9 +118,9 @@ y_axis_params <- list(
   n_cls = list(y_breaks = seq(0, 100, by = 5), y_limits = c(0,15))
 )
 
-
+# Generate plots for each variable
 list_figures <- lapply(variables_to_plot, function(var) {
-  params <- y_axis_params[[var]] # Get the parameters for the current variable
+  params <- y_axis_params[[var]] # Get parameters for the current variable
   plot_raw_boot_facet_layer (var,
                 y_breaks = params$y_breaks,
                 y_limits = params$y_limits,
@@ -111,7 +128,7 @@ list_figures <- lapply(variables_to_plot, function(var) {
                 fig_title = var)
 })
 
-# Assemble the figures using ggarrange with common.legend = TRUE
+# Arrange plots in a 2x2 grid with a shared legend
 ggarrange(plotlist = list_figures,
           ncol = 2, nrow = 2,
           common.legend = TRUE, legend = "top")
@@ -120,10 +137,10 @@ ggarrange(plotlist = list_figures,
 
 ### Plot multiple figures simultaneously: example 2
 ```{r,fig.width = 8, fig.asp =1.5, echo=FALSE}
-
+# Use predefined list of variables to plot
 variables_to_plot <- rv_list
 
-# create the y-axis parameter
+# Define y-axis parameters for each variable
 y_axis_params <- list(
   total_cell_number = list(y_breaks = seq(0, 400, by = 100), y_limits = c(0, 400)),
   n_cls_before_stat = list(y_breaks = seq(0, 100, by = 5), y_limits = c(0, 25)),
@@ -131,6 +148,7 @@ y_axis_params <- list(
   n_cls = list(y_breaks = seq(0, 100, by = 5), y_limits = c(0,15))
 )
 
+# Generate plots for each variable
 list_figures <- lapply(variables_to_plot, function(var) {
   params <- y_axis_params[[var]] # Get the parameters for the current variable
   plot_raw_boot_facet_layer (var,
@@ -140,7 +158,7 @@ list_figures <- lapply(variables_to_plot, function(var) {
                 fig_title = var)
 })
 
-# Assemble the figures using ggarrange with common.legend = TRUE
+# Arrange plots in a 2x5 grid with a shared legend
 ggarrange(plotlist = list_figures,
           ncol = 2, nrow = 5,
           common.legend = TRUE, legend = "top")
@@ -150,16 +168,16 @@ ggarrange(plotlist = list_figures,
 
 ### Report all statistical analysis
 ```{r,results='asis'}
-# List of variables to analyze
+# List of variables for statistical analysis
 variables_to_report <- rv_list
 
-# Loop through each variable and execute the functions
+# Loop through variables to report main and interaction effects
 for (var in variables_to_report) {
   cat("## Statistical result for ", var, "\n")
   cat("### Report Main Effect for", var, "\n")
-  report_main_effect(var)
+  report_main_effect(var) # Display main effect results
   cat("### Report Interaction Effect for", var, "\n")
-  report_inter_age_sex_layer(var)
+  report_inter_age_sex_layer(var) # Display interaction effects by age and sex
 }
 
 ```

@@ -7,35 +7,31 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-# Set knitr options to suppress code echoing, messages, warnings, and comments
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, comment = "")
 
 # Verify the working directory
-print(getwd()) # Prints the path to the current working directory
+print(getwd()) # Should print the path to your working directory
 
-# Initialize freshr package for clean R environment
 freshr::freshr()
+library(gridExtra)
+library(knitr)
+library(tidyverse)
+library(tinytex)
+library(extrafont)
+library(ggpubr)
+library(sjPlot)
+library(here)
 
-# Load required R packages for data manipulation, visualization, and reporting
-library(gridExtra) # For arranging multiple plots
-library(knitr) # For generating dynamic reports
-library(tidyverse) # For data manipulation and visualization
-library(tinytex) # For LaTeX rendering in RMarkdown
-library(extrafont) # For custom fonts in plots
-library(ggpubr) # For publication-ready plots
-library(sjPlot) # For statistical model visualization
-library(here) # For consistent file path handling
+#set-theme for figure
+theme_set (theme_classic(base_size = 10, base_family = "sans"))
 
-# Set theme for figures
-theme_set (theme_classic(base_size = 10, base_family = "sans")) # Use clean, sans-serif theme with base font size 10
-
-# Load color palette package
+##libraries for color
 library(ggsci)
 
-# Load custom function for post-hoc analysis
+# Load source file
 source(here("src", "WT_Dlx_GsDREADD_Function_posthoc.R"))
 
-# Load precomputed RData file with K-means clustering results for WT_Dlx_GsDREADD
+#result source
 load(here("output","Kmean_CovM_SummaryWT_Dlx_GsDREADD.RData"))
 
 ```
@@ -43,19 +39,16 @@ load(here("output","Kmean_CovM_SummaryWT_Dlx_GsDREADD.RData"))
 
 #### Report animal number and image number
 ```{r,results='asis',echo=FALSE}
-# Summarize animal and image counts by sex and p15_cno
 count <- df_lite %>%
   group_by(sex, p15_cno) %>%
   dplyr::summarize(animal_count = n_distinct(subject_id),
             image_count = n())
 
-# Display summary table
 kable(count)
 ```
 
 ### Plot individuel figure
 ```{r,fig.width = 3, fig.asp =1, echo=FALSE}
-# Plot total cell number with faceted layers
 plot_raw_boot_facet_layer("total_cell_number",
                            y_breaks = seq(0, 400, 100),
                            y_limits = c(0, 400),
@@ -66,7 +59,6 @@ plot_raw_boot_facet_layer("total_cell_number",
 
 ### Plot individuel figure
 ```{r,fig.width = 3, fig.asp =1, echo=FALSE}
-# Plot total cell number with faceting by sex
 plot_raw_boot_facet_sex("total_cell_number",
                            y_breaks = seq(0, 400, 100),
                            y_limits = c(0, 400),
@@ -77,7 +69,6 @@ plot_raw_boot_facet_sex("total_cell_number",
 
 ### Plot individuel figure
 ```{r,fig.width = 3, fig.asp =1, echo=FALSE}
-# Plot total cell number without faceting
 plot_raw_boot("total_cell_number",
                            y_breaks = seq(0, 400, 100),
                            y_limits = c(0, 400),
@@ -90,10 +81,9 @@ plot_raw_boot("total_cell_number",
 ## Plot figure seperate layer
 ```{r,fig.width = 8, fig.asp =1, echo=FALSE}
 
-# Define variables to plot
 variables_to_plot = rv_list
 
-# Define y-axis parameters for each variable
+# create the y-axis parameter
 y_axis_params <- list(
   total_cell_number = list(y_breaks = seq(0, 400, by = 100), y_limits = c(0, 400)),
   n_cls_before_stat = list(y_breaks = seq(0, 100, by = 10), y_limits = c(0, 30)),
@@ -107,7 +97,7 @@ y_axis_params <- list(
   cells_in_many_assembly = list(y_breaks = seq(0, 100, by = 25), y_limits = c(0, 100))
 )
 
-# Generate plots for each variable
+
 list_figures <- lapply(variables_to_plot, function(var) {
   params <- y_axis_params[[var]] # Get the parameters for the current variable
   plot_raw_boot_facet_layer (var,
@@ -118,12 +108,12 @@ list_figures <- lapply(variables_to_plot, function(var) {
 })
 
 
-# Arrange plots in a 4x3 grid with a shared legend
+# Assemble the figures using ggarrange with common.legend = False
 ggarrange(plotlist = list_figures,
           ncol = 4, nrow = 3,
           common.legend = TRUE, legend = "top")
 
-# Save the figure (commented out)
+# Save the figure
 #ggsave("Fig.svg", plot = last_plot(), path = here("output_plot"),
 #       width = 8, height = 4, units = "in")
 
@@ -132,18 +122,18 @@ ggarrange(plotlist = list_figures,
 
 ##### Report all statistical analysis
 ```{r,results='asis'}
-# List of variables for statistical analysis
+# List of variables to analyze
 variables_to_report <- rv_list
 #variables_to_report <- c("total_cell_number", "n_cls")
 
-
-# Loop through variables to report main and interaction effects
+# Loop through each variable and execute the functions
 for (var in variables_to_report) {
   cat("## Statistical result for ", var, "\n")
   cat("### Report Main Effect for", var, "\n")
-  report_main(var) # Display main effect results
+  report_main(var)
+  
   cat("### Report Interaction Effect for", var, "\n")
-  report_all_interaction_simple (var, var_int1 = "p15_cno", var_int2 = "sex", var_int3 = "f.layer") # Display interaction effects
+  report_all_interaction_simple (var, var_int1 = "p15_cno", var_int2 = "sex", var_int3 = "f.layer")
 }
 
 ```

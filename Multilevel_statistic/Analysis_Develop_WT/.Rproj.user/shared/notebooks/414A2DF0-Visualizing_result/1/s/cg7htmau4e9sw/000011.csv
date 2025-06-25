@@ -1,4 +1,0 @@
-"0",""
-"0","# Save the figure"
-"0","ggsave(""total_cell_number_facet_sex.svg"", plot = last_plot(), path = here(""output_plot""),"
-"0","         width = 3.5, height = 2, units = ""in"")"

@@ -14,15 +14,21 @@ clc
 % Single quotes (' ') must be used for paths; double quotes (" ") are not supported
 addpath 'C:\Users\juiyhuan\OneDrive - Indiana University\Github_Desktop\SubNetwork_search_multilevel2025\Clustering\Function'
 addpath 'C:\Users\juiyhuan\OneDrive - Indiana University\Github_Desktop\SubNetwork_search_multilevel2025\Clustering\Function_CommDetec'
-%%
-%% Initialize parallel computing pool (if not already active)
+
+%% Initialize parallel computing pool for faster processing
+numCores = feature('numcores');
+fprintf('This system has %d physical CPU cores available.\n', numCores);
+
+wish_coresToUse = 4;
+maxCoresToUse = min(wish_coresToUse, numCores);  
 if isempty(gcp('nocreate'))
-    disp('Starting parallel pool...');
-    parpool;  % Start parallel pool with default profile and number of workers
+    fprintf('Starting parallel pool with %d cores...\n', maxCoresToUse);
+    parpool; 
 else
-    disp('Parallel pool already running.');
+    currentPool = gcp('nocreate');
+    fprintf('Parallel pool already running with %d workers.\n', currentPool.NumWorkers);
 end
-%%
+
 %% Define root directory and find session folders
 root_path = 'C:\Users\juiyhuan\OneDrive - Indiana University\Github_Desktop\SubNetwork_search_multilevel2025\Clustering_Example';
 
@@ -34,7 +40,7 @@ for x = 1: height(folder_list_full)
                    contains(folder_list_full(x).name,'C2-1');
 end
 folder_list = folder_list_full(folderLog); % Filtered list of session folders
-%%
+
 %% Loop over each session folder to run clustering
 for run_idx = 1: height(folder_list)
     input_path = fullfile(folder_list(run_idx).folder,folder_list(run_idx).name);

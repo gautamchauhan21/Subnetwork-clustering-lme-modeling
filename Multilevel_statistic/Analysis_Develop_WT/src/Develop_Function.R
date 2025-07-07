@@ -7,8 +7,10 @@ required_packages <- c(
   "simpleboot",    # For simple bootstrap methods
   "lmeresampler",  # For resampling methods for mixed models
   "foreach",       # For looping constructs for parallel execution
-  "doParallel"     # For parallel backend to the foreach
+  "doParallel",    # For parallel backend to the foreach
+  "doRNG"          # For parallel Reproducibility
 )
+
 
 # Install any packages that are not already installed
 installed_packages <- rownames(installed.packages())
@@ -20,6 +22,22 @@ for (pkg in required_packages) {
 
 # Load all required packages
 lapply(required_packages, library, character.only = TRUE)
+
+
+
+# Install any packages that are not already installed
+installed_packages <- rownames(installed.packages())
+for (pkg in required_packages) {
+  if (!(pkg %in% installed_packages)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+}
+
+# Load all required packages
+lapply(required_packages, library, character.only = TRUE)
+
+
+
 
 
 # Define MLM with three-way interaction --------------------------------------------
@@ -150,7 +168,7 @@ model_select = function(x, data = df_lite) {
   mod_list = list(mod0, mod1, mod2, mod3, mod4, mod5, mod6, mod7)
   
   if (class(mod0) == "lmerMod") {
-    # anova (for lmer models)
+    # anova (for lmer models): comparees models using likelihood ratio tests
     mod_compare = anova(mod0, mod1, mod2, mod3, mod4, mod5, mod6, mod7)
   } else {
     # AIC (for lm models)
@@ -175,29 +193,77 @@ model_select = function(x, data = df_lite) {
 
 
 # Case bootstrap method ----------------------------------------------------------
-
+#' This function performs a case bootstrap for linear mixed-effects models
+#' using parallel processing via `foreach` and `lmeresampler`.
+#'
+#' The bootstrapping strategy is "case bootstrap", meaning it resamples entire
+#' cases (rows of data), which implicitly accounts for the hierarchical structure.
+#' It automatically adjusts the `resample` argument based on the number of
+#' grouping factors in the mixed-effects model.
+#'
+#' **Important Note for Parallel Processing:**
+#' This function relies on `foreach` and `doParallel` for parallel execution.
+#' To ensure the function runs in parallel and produces reproducible results,
+#' you *must* set up and register a parallel backend (e.g., using `makeCluster()`
+#' and `registerDoParallel()`) *before* calling this function.
+#' After all parallel computations are complete, remember to `stopCluster()`.
+#'
+#' @param mod An `lmerMod` object, typically created by `lme4::lmer()`.
+#' @param b1 An integer specifying the number of bootstrap replicates to be performed
+#'           by each parallel worker. The total number of replicates will be `b1 * b2`.
+#'           Defaults to 625.
+#' @param b2 An integer specifying the number of parallel workers (or batches) over
+#'           which the total bootstrap replicates will be distributed.
+#'           Defaults to 16.
+#'
+#' @return A `lmeresamp.bootstrap` object containing the results of the case bootstrap.
+#'         This object can be further analyzed using methods provided by `lmeresampler`
+#'         (e.g., `summary()`, `confint()`).
+#'
+#' @details
+#' The function uses `lmeresampler::bootstrap()` with `type = "case"`.
+#'
+#' - If the model has only one grouping factor (e.g., `(1|Subject)`), `resample = c(TRUE, FALSE)`
+#'   is used, indicating resampling of subjects but not residuals.
+#' - If the model has multiple grouping factors (e.g., `(1|Subject) + (1|Item)`),
+#'   `resample = c(TRUE, FALSE, FALSE)` is used, indicating resampling of subjects
+#'   but not residuals or lower-level effects.
+#'
+#' **Reproducibility:** `registerDoRNG(123)` is called inside the function to ensure
+#' that the parallel random number streams are reproducible. This means that
+#' calling the function multiple times with the same inputs will yield identical
+#' bootstrap results, provided the parallel setup is consistent. The choice of
+#' `123` as the seed is arbitrary; any integer would work.
+#'
+#'
 case_bootstrap = function(mod, b1 = 625 , b2 = 16) {
-  tryCatch(
+ 
+   registerDoRNG(123) # Choose any integer seed you like
+  
+   tryCatch(
     {
       if (length(attributes(mod@flist)$names) == 1) {
-        case_boot = foreach(B = rep(b1, b2), 
+        case_boot = foreach(B_iter = rep(b1, b2), 
                             .combine = combine_lmeresamp,
                             .packages = c("lmeresampler", "lme4")) %dopar% {
                               bootstrap(mod, .f = fixef, 
                                         resample = c(TRUE, FALSE), 
-                                        type = "case", B = B)
+                                        type = "case", B = B_iter)
                             }
       } else {
-        case_boot = foreach(B = rep(b1, b2), 
+        case_boot = foreach(B_iter = rep(b1, b2), 
                             .combine = combine_lmeresamp,
                             .packages = c("lmeresampler", "lme4")) %dopar% {
                               bootstrap(mod, .f = fixef, 
                                         resample = c(TRUE, FALSE, FALSE), 
-                                        type = "case", B = B)
+                                        type = "case", B = B_iter)
                             }
       }
+      # Return the combined bootstrap results
       return(case_boot)
-    }, 
+    },
+    
+    # Error handling block: catches any errors during execution
     error = function(e) {
       message("An error occurred.")
       print(e)
@@ -207,9 +273,46 @@ case_bootstrap = function(mod, b1 = 625 , b2 = 16) {
 
 
 # Simple bootstrap method for lm models --------------------------------------------------------
-
+#'
+#' @description
+#' This function performs a non-parametric bootstrap for a linear model (LM)
+#' using the `simpleboot::lm.boot` function. It resamples rows of the original
+#' dataset with replacement to generate bootstrap samples and then refits the
+#' linear model for each sample.
+#'
+#' The function sets a fixed random seed internally to ensure that the
+#' bootstrap results are fully reproducible.
+#'
+#' @param mod An `lm` object, typically created by `stats::lm()`.
+#' @param R An integer specifying the number of bootstrap replicates to perform.
+#'          Defaults to 10000.
+#'
+#' @return An object of class `lm.boot`, which is a list containing the
+#'         bootstrap results (e.g., coefficients, residuals, fitted values)
+#'         and can be further analyzed using `summary()` or `plot()` methods
+#'         from the `simpleboot` package.
+#'
+#' @details
+#' The bootstrap method used here is a "case bootstrap" as it resamples entire
+#' rows (cases) from the original data. This is suitable for standard linear
+#' models where independence of observations is assumed.
+#'
+#' **Reproducibility:** A fixed seed (`set.seed(10)`) is set at the beginning
+#' of the function. This guarantees that calling `lm_bootstrap` multiple times
+#' with the same input model and `R` value will produce identical bootstrap
+#' results. The choice of `10` as the seed is arbitrary; any integer would work
+#' for reproducibility.
+#' 
+#' 
 lm_bootstrap = function(mod, R = 10000) {
+  # Set the seed for reproducible random number generation within this function.
+  # This ensures that calling this function multiple times with the same inputs
+  # will always yield the exact same bootstrap results.
+  set.seed(10)
+  # Perform the linear model bootstrap using simpleboot::lm.boot.
+  # 'rows = TRUE' indicates that entire rows (cases) of the data are resampled.
   lm_boot = lm.boot(mod, R = R, rows = TRUE)
+  # Return the results of the bootstrap.
   return(lm_boot)
 }
 

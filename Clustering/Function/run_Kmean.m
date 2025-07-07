@@ -74,25 +74,6 @@ NCl = max(IDX2);
 [~,x2] = sort(IDX2);
 MSort = CovM(x2,x2); % Sorted normalized covariance matrix
 
-% Score calculation for each cell and cluster
-R = cell(1, NCl);
-CellScore = zeros(NCell,NCl);
-CellScoreN = zeros(NCell,NCl);
-for i = 1:NCl
-    R{i} = find(IDX2==i);
-    CellScore(:,i) = sum(Race(:,R{i}),2);
-    CellScoreN(:,i) = CellScore(:,i)/length(R{i});
-end
-
-% Assign cells to cluster with which it most likely spikes
-[~,CellCl] = max(CellScoreN,[],2);
-CellCl(max(CellScore,[],2)<2) = 0; % remove weakly spiking cells
-
-[X1,x1] = sort(CellCl); % for later plotting
-
-NCl_beforeStat = length(sCl); % Event cluster number before assigning cell
-
-
 %% Run null model clustering (random trials)(optional)
 if runNull
     fprintf('Running null model clustering...\n')
@@ -112,6 +93,25 @@ if runNull
     save(fullfile(output_path, 'Null_model_Clusters.mat'));
 end
 
+%% Score calculation for each cell and cluster
+R = cell(1, NCl);
+CellScore = zeros(NCell,NCl);
+CellScoreN = zeros(NCell,NCl);
+for i = 1:NCl
+    R{i} = find(IDX2==i);
+    CellScore(:,i) = sum(Race(:,R{i}),2);
+    CellScoreN(:,i) = CellScore(:,i)/length(R{i});
+end
+
+%% Assign cells to cluster with which it most likely spikes
+[~,CellCl] = max(CellScoreN,[],2);
+CellCl(max(CellScore,[],2)<2) = 0; % remove weakly spiking cells
+
+[X1,x1] = sort(CellCl); % for later plotting
+
+NCl_beforeStat = length(sCl); % Event cluster number before assigning cell
+
+
 %% Neuron-to-Cluster Significance Testing
 NShuf = NShuff_num; % lower for testing; use 5000 for full
 
@@ -127,7 +127,7 @@ end
 % Test for statistical significance
 CellCl = zeros(NCl,NCell); % Binary matrix of cell associated to clusters
 for j = 1:NCell
-    %Random distribution among Clusters
+    % Random distribution among Clusters
     RClr = zeros(NCl,NShuf);
     Nrnd = sum(Race(j,:) ~= 0);
     if Nrnd == 0
@@ -181,7 +181,7 @@ CellParticip = max(CellR([A1 A2],:),[],2);
 NCl = length(C0);  %final subnetwork number
 if ~NCl
     NCl = 0;
-    disp('There were no significant clusters found!! Cannot run this cell...');
+    warning('No significant cluster found in %s',input_path);
     save(fullfile(output_path, 'all.mat'), '-v7.3');    
     return
     %exit() % in hpc job need use exit    
@@ -196,7 +196,7 @@ end
 
 RCln = zeros(NCl,NRace);
 for j = 1:NRace
-    %Random distribution among Clusters
+    % Random distribution among Clusters
     RClr = zeros(NCl,NShuf);
     Nrnd = sum(Race(:,j) ~= 0); 
     if ~Nrnd % neuron doesn't fire in time period
@@ -228,7 +228,8 @@ end
 
 %% Final preparations for downstream plotting
 if ~NCl
-    disp('There were no significant clusters found!! Cannot run this cell...');
+    warning('No significant clusters found in %s',input_path);
+    return;
 end
 
 % Times that significantly recruit 0 cell assemblies; will not plot this

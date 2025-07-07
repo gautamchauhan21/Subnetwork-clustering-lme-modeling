@@ -6,16 +6,22 @@ clc
 % Single quotes (' ') must be used for paths; double quotes (" ") are not supported
 addpath 'C:\Users\juiyhuan\OneDrive - Indiana University\Github_Desktop\SubNetwork_search_multilevel2025\Clustering\Function'
 addpath 'C:\Users\juiyhuan\OneDrive - Indiana University\Github_Desktop\SubNetwork_search_multilevel2025\Clustering\Function_CommDetec'
-%%
-% Initialize parallel computing pool for faster processing
+
+%% Initialize parallel computing pool for faster processing
+numCores = feature('numcores');
+fprintf('This system has %d physical CPU cores available.\n', numCores);
+
+wish_coresToUse = 4;
+maxCoresToUse = min(wish_coresToUse, numCores);  
 if isempty(gcp('nocreate'))
-    disp('Starting parallel pool...');
-    parpool;  % Start parallel pool with default profile and number of workers
+    fprintf('Starting parallel pool with %d cores...\n', maxCoresToUse);
+    parpool('local', maxCoresToUse);
 else
-    disp('Parallel pool already running.');
+    currentPool = gcp('nocreate');
+    fprintf('Parallel pool already running with %d workers.\n', currentPool.NumWorkers);
 end
-%%
-% Define the input folder path containing session data
+
+%% Define the input folder path containing session data
 input_path = 'C:\Users\juiyhuan\OneDrive - Indiana University\Github_Desktop\SubNetwork_search_multilevel2025\Clustering_Example\P15_C2-1_BR_L1_150';
 
 % Define time per frame (in seconds) for converting time to frame indices
@@ -25,7 +31,9 @@ time_per_frame = 0.065;
 % Attempt to read input files (detected_events, start_time, end_time) from the input path
 try
     % Read detected events as a binary matrix (non-zero values converted to 1)
-    detected_events = readmatrix(fullfile(input_path,'detected_events.xlsx')) ~= 0;
+    detected_events = readmatrix(fullfile(input_path, 'detected_events.xlsx'));
+    detected_events = detected_events ~= 0;
+
     % Get start_time
     start_time = readmatrix(fullfile(input_path,'start_time.csv'));
     % Get end_time
@@ -35,12 +43,11 @@ catch
     error('Required input files (start_time, end_time, detected_events) are missing or unreadable.');
 end
 
-%%
 %% Prepare data for clustering
 % Convert time (sec) to frame index using the sampling rate (time_per_frame)
 % Crop the event matrix to the time window of interest
 Race = detected_events(:, floor(start_time/time_per_frame):floor(end_time/time_per_frame)-1);
-%%
+
 %% ------------------------ K-means Clustering ------------------------
 % Run K-means clustering using 3 different similarity metrics
 % Inputs:
@@ -58,7 +65,7 @@ run_Kmean(input_path, Race, 'JaccardM', 10, 100);
 % Define path to the output file from K-means clustering (CovM metric)
 all_mat_path = fullfile(input_path,"Output_Kmean_CovM/all.mat");
 plot_Kmean_clusters(all_mat_path);
-%%
+
 %% ------------------ Community Detection Clustering ------------------
 % Run Louvain community detection in both uniform and asymmetric resolution modes
 % Inputs:
@@ -82,7 +89,7 @@ plot_CommDetect_clusters(all_mat_path);
 all_mat_path = fullfile(input_path,"Output_CommDetect_Asymmetry_CovM/all.mat");
 % Plot the Community Detection clustering results using the output file
 plot_CommDetect_clusters(all_mat_path);
-%%
+
 %% ------------------------ DBSCAN Clustering ------------------------
 % Run DBSCAN clustering with covariance-based similarity
 % Inputs:
@@ -97,5 +104,4 @@ all_mat_path = fullfile(input_path,"Output_DBSCAN_CovM/all.mat");
 
 % Plot the DBSCAN clustering results using the output file
 plot_DBSCAN_clusters(all_mat_path);
-%% 
-%
+

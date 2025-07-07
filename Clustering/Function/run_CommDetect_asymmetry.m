@@ -229,7 +229,7 @@ CellParticip = max(CellR([A1 A2],:),[],2);
 NCl = length(C0); %final subnetwork number
 if ~NCl
     NCl = 0;
-    disp('There were no significant clusters found!! Cannot run this cell...');
+    warning('There were no significant clusters found!! Cannot run this cell...');
     save(fullfile(output_path, 'all.mat'),'-v7.3');    
     return
     %exit() % in hpc job need use exit    

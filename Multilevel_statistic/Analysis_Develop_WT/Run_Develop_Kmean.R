@@ -114,11 +114,13 @@ mod_list_lmer = mod_list_select[which(mod_class == "lmerMod")]
 # default: R = 10000
 lm_boot_list = lapply(mod_list_lm, lm_bootstrap, R = 10000)
 
+detectCores() # check how many cores
+
 # lmer bootstrap
 Sys.time()
-tic("case bootstrap")
-set.seed(47408)
-cl = makeCluster(10)
+tic ("Case Bootstrap for LMER Models")
+wish_coresToUse <- 10
+cl = makeCluster(wish_coresToUse)
 registerDoParallel(cl)
 # default: b1 = 625, b2 = 16 --> B = 10000
 case_boot_list = lapply(mod_list_lmer, case_bootstrap, b1 = 1000, b2 = 10)

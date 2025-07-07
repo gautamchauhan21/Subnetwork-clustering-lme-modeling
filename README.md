@@ -162,8 +162,5 @@ This repository contains MATLAB and R code for clustering neuronal activity data
 - **R**: Verify working directory and package installations.
 - Refer to paper for detailed troubleshooting steps.
 
-## License
-## To add
-
 ## Contact
 For issues, please open a GitHub issue.
